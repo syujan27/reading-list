@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>選讀清單</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Iansui&display=swap">
+<style>
+/* 版面：一張置中的米白稿紙卡片，沿用「我的待辦事項」的風格 */
+:root {
+  --paper-bg: #f3efe7;     /* 頁面底色 */
+  --dot: rgba(140,125,105,0.07);
+  --card: #fbf8f2;         /* 卡片 */
+  --line: #e2dacd;         /* 卡片外框 */
+  --rule: #ece5d9;         /* 列與列之間的細線 */
+  --ink: #3b352c;          /* 內文 */
+  --ink-head: #4a4235;     /* 標題 */
+  --muted: #8f8573;        /* 次要文字 */
+  --faint: #ada391;        /* 提示文字 */
+  --accent: #7a6b51;       /* 墨褐色 */
+  --accent-soft: #cfc3ae;
+  --on-accent: #fbf8f2;
+  --spine-1: #c9b9a0; --spine-2: #b7bfae; --spine-3: #c7ad9f; --spine-4: #aeb6bd;
+  --spine-ink: #4a4235;
+  --reading-bg: #dcd6ef;   /* 閱讀中：藍紫薰衣草 */
+  --reading-ink: #4a3f7a;
+  --reading-line: #b5acd9;
+  --want-bg: #d6e1cf;      /* 想讀：鼠尾草綠 */
+  --want-ink: #3f583d;
+  --hyread-bg: #d6e3f1; --hyread-ink: #2c4a6e;   /* HyRead：藍 */
+  --kobo-bg: #e6d0cc; --kobo-ink: #7d4b4b;       /* Kobo：乾燥玫瑰粉 */
+  --font-serif: "Iansui", "Noto Serif TC", "Songti TC", "PMingLiU", Georgia, serif;  /* 芫荽（香菜體） */
+  --font-latin: Georgia, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper-bg: #1d1b17; --dot: rgba(220,205,180,0.04); --card: #26231e; --line: #3a352d; --rule: #332f28;
+    --ink: #e4dccd; --ink-head: #efe7d8; --muted: #a99f8c; --faint: #857c6c;
+    --accent: #c9b48c; --accent-soft: #5a5142; --on-accent: #26231e; color-scheme: dark;
+    --spine-1: #5b5040; --spine-2: #4c5446; --spine-3: #5e4a40; --spine-4: #48505a; --spine-ink: #efe7d8;
+    --reading-bg: #36304d; --reading-ink: #d9d2f2; --reading-line: #625888;
+    --want-bg: #34433a; --want-ink: #cfe0c8;
+    --hyread-bg: #2d3c50; --hyread-ink: #c9dbf0; --kobo-bg: #4b3533; --kobo-ink: #ebcfca;
+  }
+}
+:root[data-theme="dark"] {
+  --paper-bg: #1d1b17; --dot: rgba(220,205,180,0.04); --card: #26231e; --line: #3a352d; --rule: #332f28;
+  --ink: #e4dccd; --ink-head: #efe7d8; --muted: #a99f8c; --faint: #857c6c;
+  --accent: #c9b48c; --accent-soft: #5a5142; --on-accent: #26231e; color-scheme: dark;
+  --spine-1: #5b5040; --spine-2: #4c5446; --spine-3: #5e4a40; --spine-4: #48505a; --spine-ink: #efe7d8;
+    --reading-bg: #36304d; --reading-ink: #d9d2f2; --reading-line: #625888;
+    --want-bg: #34433a; --want-ink: #cfe0c8;
+    --hyread-bg: #2d3c50; --hyread-ink: #c9dbf0; --kobo-bg: #4b3533; --kobo-ink: #ebcfca;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 56px 16px 80px;
+  font-family: var(--font-serif);
+  background-color: var(--paper-bg);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 4px 4px;
+  color: var(--ink);
+  line-height: 1.8;
+  font-size: 16px;
+}
+
+.app {
+  max-width: 560px;
+  margin: 0 auto;
+  background: var(--card);
+  padding: 44px 40px 36px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: var(--ink-head);
+  text-wrap: balance;
+}
+.subtitle {
+  margin: 6px 0 0;
+  text-align: center;
+  font-family: var(--font-latin);
+  font-style: italic;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--faint);
+}
+
+button { cursor: pointer; font-family: inherit; border-radius: 2px; border: none; transition: all 0.25s ease; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 1px dashed var(--accent); outline-offset: 3px; }
+
+/* 月份切換 */
+.month-nav {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  margin-top: 28px;
+}
+.month-nav .arrow {
+  width: 36px; height: 36px; font-size: 18px; line-height: 1;
+  color: var(--muted); background: transparent; border: 1px solid transparent;
+}
+.month-nav .arrow:hover { color: var(--accent); border-color: var(--accent-soft); }
+.month-label {
+  min-width: 9em; text-align: center;
+  font-size: 18px; letter-spacing: 0.14em; color: var(--ink-head);
+  font-variant-numeric: tabular-nums;
+}
+.summary {
+  margin: 4px 0 0; text-align: center;
+  font-size: 13px; letter-spacing: 0.1em; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 新增書籍 */
+.add-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 14px;
+  align-items: end;
+  margin: 28px 0 24px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+.field { display: flex; flex-direction: column; min-width: 0; }
+.field label { font-size: 11px; letter-spacing: 0.16em; color: var(--faint); }
+.field input {
+  padding: 6px 2px; font-size: 16px; font-family: inherit; color: var(--ink);
+  background: transparent; border: none; border-bottom: 1px solid var(--accent-soft); border-radius: 0;
+  transition: border-color 0.25s ease; min-width: 0;
+}
+.field input::placeholder { color: var(--faint); font-style: italic; }
+.field input:focus { outline: none; border-bottom-color: var(--accent); }
+
+.add-btn {
+  padding: 7px 20px; font-size: 14px; letter-spacing: 0.12em;
+  color: var(--accent); background: transparent; border: 1px solid var(--accent-soft);
+  min-height: 40px;
+}
+.add-btn:hover { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+
+/* 篩選 */
+.filter-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+.filter-btn {
+  padding: 5px 12px; font-size: 13px; letter-spacing: 0.14em;
+  color: var(--faint); background: transparent; border-bottom: 1px solid transparent; border-radius: 0;
+}
+.filter-btn:hover { color: var(--muted); }
+.filter-btn.is-active { color: var(--ink-head); border-bottom-color: var(--accent); }
+
+/* 書單 */
+ul { list-style: none; margin: 0; padding: 0; }
+li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 2px;
+  border-bottom: 1px solid var(--rule);
+}
+li:last-child { border-bottom: none; }
+
+/* 封面：點一下可以換圖，也可以把圖片拖曳上來 */
+.cover {
+  position: relative;
+  width: 56px; height: 82px; padding: 0; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 1px;
+  background: var(--spine-1); color: var(--spine-ink);
+  box-shadow: 2px 2px 0 var(--rule);
+  display: flex; align-items: center; justify-content: center;
+}
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover .initial { font-size: 20px; letter-spacing: 0; }
+.cover .initial::after {
+  content: ""; position: absolute; left: 6px; top: 0; bottom: 0; width: 1px; background: currentColor; opacity: 0.25;
+}
+.cover .tip {
+  position: absolute; inset: auto 0 0 0; padding: 2px 0; font-size: 10px; letter-spacing: 0.1em;
+  background: var(--card); color: var(--muted); opacity: 0; transition: opacity 0.2s ease;
+}
+.cover:hover .tip, .cover:focus-visible .tip, .cover.drag .tip { opacity: 0.92; }
+.cover.drag { outline: 1px dashed var(--accent); outline-offset: 3px; }
+.cover[data-tone="2"] { background: var(--spine-2); }
+.cover[data-tone="3"] { background: var(--spine-3); }
+.cover[data-tone="4"] { background: var(--spine-4); }
+.remove-cover {
+  display: inline; margin-left: 10px; padding: 0; font-size: 11px; letter-spacing: 0.08em;
+  color: var(--faint); background: transparent; text-decoration: underline; text-underline-offset: 3px;
+}
+.remove-cover:hover { color: var(--accent); }
+.book .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+/* 全年 12 個月的小格子：顯示每月本數，點了只看那個月 */
+.months {
+  display: grid; grid-template-columns: repeat(13, 1fr); gap: 4px;
+  margin-top: 22px;
+}
+.month-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 0 5px; min-height: 48px;
+  background: transparent; border: 1px solid transparent; color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.month-cell .m { font-size: 12px; letter-spacing: 0; }
+.month-cell .n { font-size: 11px; font-family: var(--font-latin); font-style: italic; }
+.month-cell.has-books { color: var(--muted); }
+.month-cell.has-books .n { color: var(--accent); font-style: normal; }
+.month-cell:hover { border-color: var(--accent-soft); }
+.month-cell.is-active { border-color: var(--accent); color: var(--ink-head); }
+.month-cell.all .m { letter-spacing: 0.04em; }
+
+.add-form.with-month { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+.add-form.with-month .f-title, .add-form.with-month .f-author { grid-column: span 2; }
+.add-form.with-month .add-btn { padding: 7px 14px; min-height: 36px; }
+.year-row { margin: 18px 0 0; }
+.sync {
+  margin: 10px 0 0; text-align: center; font-size: 12px; letter-spacing: 0.08em; color: var(--faint);
+}
+.sync.is-synced { color: var(--accent); }
+.sync .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 1px; }
+.field select, .month-move {
+  font-family: inherit; color: var(--ink); background: transparent;
+  border: none; border-bottom: 1px solid var(--accent-soft); border-radius: 0;
+}
+.field select { padding: 7px 0; font-size: 15px; }
+.month-move { margin-left: 8px; padding: 1px 0; font-size: 12px; color: var(--muted); cursor: pointer; }
+
+.month-group + .month-group { margin-top: 22px; }
+.month-group h2 {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--line);
+  font-size: 15px; font-weight: 400; letter-spacing: 0.14em; color: var(--ink-head);
+}
+.month-group h2 small {
+  font-family: var(--font-latin); font-style: italic; font-size: 11px; letter-spacing: 0.14em; color: var(--faint); font-weight: 400;
+}
+
+@media (max-width: 480px) {
+  .months { grid-template-columns: repeat(7, 1fr); }
+  .add-form.with-month .f-title, .add-form.with-month .f-author { grid-column: span 4; }
+}
+
+/* 月份下拉選單 */
+/* 年份與月份放同一排 */
+.scope-row {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+  gap: 6px 18px; margin-top: 22px;
+}
+.month-pick.year-pick { padding-left: 0; border-left: none; }
+.month-pick { display: flex; align-items: center; gap: 6px; padding-left: 18px; border-left: 1px solid var(--rule); }
+.month-pick label { font-size: 11px; letter-spacing: 0.16em; color: var(--faint); }
+.month-pick select {
+  appearance: none; -webkit-appearance: none;
+  min-height: 28px; padding: 2px 18px 2px 4px;
+  font-family: inherit; font-size: 13px; letter-spacing: 0.08em; color: var(--ink-head);
+  background-color: transparent;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 7px center, right 3px center;
+  background-size: 4px 4px, 4px 4px; background-repeat: no-repeat;
+  border: none; border-bottom: 1px solid var(--accent); border-radius: 0; cursor: pointer;
+}
+.month-pick select option { color: var(--ink); background: var(--card); }
+
+.notice { margin: 12px 0 0; text-align: center; font-size: 12px; color: var(--accent); letter-spacing: 0.06em; }
+
+.status {
+  font-size: 12px; letter-spacing: 0.1em; padding: 3px 10px; min-width: 5.2em;
+  background: transparent; border: 1px solid var(--accent-soft); color: var(--muted);
+}
+.status:hover { border-color: var(--accent); color: var(--accent); }
+li[data-status="want"] .status { color: var(--want-ink); background: var(--want-bg); border-color: var(--want-bg); }
+li[data-status="reading"] .status { color: var(--reading-ink); background: var(--reading-bg); border-color: var(--reading-line); }
+li[data-status="done"] .status { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+
+.book { min-width: 0; }
+.book .title { display: block; font-size: 16px; letter-spacing: 0.03em; overflow-wrap: anywhere; }
+.book .title::before { content: "《"; color: var(--faint); }
+.book .title::after  { content: "》"; color: var(--faint); }
+.book .author { display: block; font-size: 13px; color: var(--muted); letter-spacing: 0.06em; overflow-wrap: anywhere; }
+.book .sample { font-family: var(--font-latin); font-style: italic; font-size: 11px; color: var(--faint); margin-left: 6px; letter-spacing: 0.08em; }
+li[data-status="done"] .title { color: var(--muted); font-style: italic; }
+
+.delete-btn {
+  padding: 4px 10px; font-size: 12px; letter-spacing: 0.1em; min-height: 32px;
+  color: var(--faint); background: transparent; border: 1px solid transparent;
+}
+.delete-btn:hover { color: var(--accent); border-color: var(--accent-soft); }
+.delete-btn.confirm { color: var(--on-accent); background: var(--accent); }
+
+.hint { margin: 24px 0 0; text-align: center; color: var(--faint); font-size: 13px; font-style: italic; letter-spacing: 0.08em; }
+.footnote { margin: 28px 0 0; padding-top: 16px; border-top: 1px solid var(--rule); text-align: center; font-size: 11px; color: var(--faint); letter-spacing: 0.08em; }
+
+@media (max-width: 480px) {
+  .app { padding: 36px 20px 28px; }
+  .add-form { grid-template-columns: 1fr; }
+  .add-btn { justify-self: end; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+
+/* 詳細內容 */
+.side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.more-btn {
+  width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--faint); background: transparent; border: 1px solid transparent; border-radius: 50%;
+}
+.more-btn:hover, .more-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent-soft); }
+.more-btn svg { width: 18px; height: 18px; }
+.details {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: auto 1fr; gap: 12px 16px; align-items: center;
+  margin-top: 2px; padding: 14px 16px;
+  background: var(--paper-bg); border: 1px solid var(--rule); border-radius: 2px;
+}
+.details .d-label { font-size: 13px; letter-spacing: 0.14em; color: var(--faint); }
+.src-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.src-btn {
+  min-height: 34px; padding: 4px 14px; font-size: 14px; letter-spacing: 0.06em;
+  color: var(--muted); background: transparent; border: 1px solid var(--accent-soft);
+}
+.src-btn:hover { border-color: var(--accent); }
+.src-btn[aria-pressed="true"][data-src="hyread"] { color: var(--hyread-ink); background: var(--hyread-bg); border-color: var(--hyread-bg); }
+.src-btn[aria-pressed="true"][data-src="kobo"] { color: var(--kobo-ink); background: var(--kobo-bg); border-color: var(--kobo-bg); }
+.src-btn[aria-pressed="true"][data-src=""] { color: var(--ink-head); border-color: var(--accent); }
+.price-wrap { display: flex; align-items: baseline; gap: 6px; }
+.price-wrap span { font-size: 14px; color: var(--muted); font-family: var(--font-latin); }
+.price-wrap input {
+  width: 8em; padding: 4px 2px; font-family: inherit; font-size: 16px; color: var(--ink);
+  background: transparent; border: none; border-bottom: 1px solid var(--accent-soft); border-radius: 0;
+  font-variant-numeric: tabular-nums;
+}
+.price-wrap input:focus { outline: none; border-bottom-color: var(--accent); }
+.tag {
+  display: inline-block; margin-left: 8px; padding: 0 8px; font-size: 12px; line-height: 1.7; letter-spacing: 0.04em;
+  border-radius: 2px; vertical-align: 1px;
+}
+.tag.hyread { color: var(--hyread-ink); background: var(--hyread-bg); }
+.tag.kobo { color: var(--kobo-ink); background: var(--kobo-bg); }
+.tag.price { color: var(--muted); background: transparent; border: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
+
+
+/* 書單上方：狀態篩選 + 右邊的「顯示來源與金額」開關 */
+.list-head { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; margin-bottom: 14px; }
+.list-head .filter-row { margin-bottom: 0; }
+.meta-toggle {
+  grid-column: 3; justify-self: end;
+  width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--accent); background: transparent; border: 1px solid var(--accent-soft); border-radius: 50%;
+}
+.meta-toggle[aria-pressed="false"] { color: var(--faint); border-color: transparent; }
+.meta-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.meta-toggle svg { width: 18px; height: 18px; }
+body.hide-meta .tags-line { display: none; }
+
+/* 字級放大 */
+body { font-size: 17px; }
+h1 { font-size: 32px; }
+.subtitle { font-size: 12px; }
+.summary { font-size: 15px; }
+.month-pick label, .field label { font-size: 13px; }
+.month-pick select { font-size: 15px; min-height: 32px; }
+.field input { font-size: 17px; }
+.field select { font-size: 16px; }
+.add-btn { font-size: 15px; }
+.filter-btn { font-size: 15px; }
+.month-group h2 { font-size: 17px; }
+.month-group h2 small { font-size: 12px; }
+.book .title { font-size: 18px; }
+.book .author { font-size: 15px; }
+.book .sample { font-size: 12px; }
+.status { font-size: 14px; }
+.month-move { font-size: 14px; }
+.remove-cover { font-size: 13px; }
+.delete-btn { font-size: 14px; }
+.cover { width: 60px; height: 88px; }
+.cover .initial { font-size: 22px; }
+.cover .tip { font-size: 11px; }
+.hint { font-size: 15px; }
+.notice, .sync { font-size: 13px; }
+.footnote { font-size: 12px; }
+</style>
+</head>
+<body>
+<main class="app">
+  <h1>選讀清單</h1>
+  <p class="subtitle">a year of quiet reading</p>
+
+  <div class="scope-row">
+    <div class="month-pick year-pick">
+      <select id="year-filter"></select>
+      <label for="year-filter">年</label>
+    </div>
+    <div class="month-pick">
+      <select id="month-filter"></select>
+      <label for="month-filter">月份</label>
+    </div>
+  </div>
+  <p class="summary" id="summary">尚無書目</p>
+
+  <div class="list-head">
+    <div class="filter-row" id="filter-row" style="grid-column: 2;">
+      <button type="button" class="filter-btn is-active" data-filter="all">全部</button>
+      <button type="button" class="filter-btn" data-filter="want">想讀</button>
+      <button type="button" class="filter-btn" data-filter="reading">閱讀中</button>
+      <button type="button" class="filter-btn" data-filter="done">已讀完</button>
+    </div>
+    <button type="button" class="meta-toggle" id="meta-toggle" aria-pressed="true" aria-label="顯示來源與金額" title="顯示／隱藏來源與金額"></button>
+  </div>
+
+  <div id="groups"></div>
+  <p id="empty-hint" class="hint">還沒有書，寫下第一本吧。</p>
+
+  <form id="book-form" class="add-form with-month" autocomplete="off">
+    <div class="field f-title">
+      <label for="title-input">書名</label>
+      <input type="text" id="title-input" required>
+    </div>
+    <div class="field f-author">
+      <label for="author-input">作者</label>
+      <input type="text" id="author-input" placeholder="可不填">
+    </div>
+    <div class="field f-year">
+      <label for="year-input">年份</label>
+      <select id="year-input"></select>
+    </div>
+    <div class="field f-month">
+      <label for="month-input">月份</label>
+      <select id="month-input"></select>
+    </div>
+    <div class="field f-genre">
+      <label for="genre-input">類型</label>
+      <select id="genre-input">
+        <option value="文學">文學</option>
+        <option value="歷史">歷史</option>
+        <option value="心靈">心靈</option>
+      </select>
+    </div>
+    <button type="submit" class="add-btn">加入</button>
+  </form>
+
+  <p id="notice" class="notice" hidden></p>
+  <input type="file" id="cover-input" accept="image/*" hidden>
+
+  <p class="footnote">
+    每本書可以自選年份與月份，書名下方的選單也能把書移到別的月。<br>
+    點封面可放上書封圖片，或直接把圖片拖到封面上。<br>
+    <button type="button" class="remove-cover" id="import-btn">從舊試算表匯入（CSV）</button>
+    <input type="file" id="import-input" accept=".csv,text/csv" hidden>
+  </p>
+  <p class="sync" id="sync"><span class="dot"></span>讀取試算表中…</p>
+</main>
+
+<script>
+// ───── 基本設定 ─────
+const STATUS = ['want', 'reading', 'done'];
+const STATUS_TEXT = { want: '想讀', reading: '閱讀中', done: '已讀完' };
+const MONTH_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const OLD_KEY = 'monthly-reading-list-v1';   // 舊版（只存在本機）
+const CACHE_KEY = 'reading-list-cache-v2';    // 本機暫存
+const MIGRATED_KEY = 'reading-list-migrated-v2';
+
+const $ = function (id) { return document.getElementById(id); };
+const form = $('book-form'), titleInput = $('title-input'), authorInput = $('author-input');
+const yearInput = $('year-input'), monthInput = $('month-input'), genreInput = $('genre-input');
+const GENRES = ['文學', '歷史', '心靈'];
+const groups = $('groups'), emptyHint = $('empty-hint'), filterRow = $('filter-row');
+const yearFilter = $('year-filter'), monthFilter = $('month-filter'), summary = $('summary');
+const notice = $('notice'), coverInput = $('cover-input'), syncLine = $('sync');
+
+const now = new Date();
+const THIS_YEAR = now.getFullYear();
+let selectedYear = THIS_YEAR;            // 0 = 全部年份；預設今年
+let selectedMonth = now.getMonth() + 1;  // 0 = 全部月份；預設本月
+let currentFilter = 'all';
+let coverTarget = null;
+
+// 「顯示來源與金額」開關：記在這台裝置上
+const metaToggle = document.getElementById('meta-toggle');
+const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.5-6.5 9.5-6.5c2 0 3.7.7 5.1 1.7M21.5 12s-3.5 6.5-9.5 6.5c-2 0-3.7-.7-5.1-1.7"/><path d="M4 20L20 4"/></svg>';
+let showMeta = true;
+try { showMeta = localStorage.getItem('reading-show-meta') !== '0'; } catch (e) {}
+function applyMetaToggle() {
+  document.body.classList.toggle('hide-meta', !showMeta);
+  metaToggle.setAttribute('aria-pressed', showMeta ? 'true' : 'false');
+  metaToggle.innerHTML = showMeta ? EYE_ON : EYE_OFF;
+}
+metaToggle.addEventListener('click', function () {
+  showMeta = !showMeta;
+  try { localStorage.setItem('reading-show-meta', showMeta ? '1' : '0'); } catch (e) {}
+  applyMetaToggle();
+});
+applyMetaToggle();
+const openDetails = {};   // 哪幾本書的詳細內容是打開的
+const SOURCES = { hyread: 'HyRead', kobo: 'Kobo' };
+
+// 所有書：[{ id, title, author, status, year, month, cover?, sample?, createdAt }]
+let books = [];
+let cloud = null;         // 雲端同步：{ col } ；null = 只存在本機
+
+// ───── 本機儲存 ─────
+function readJSON(key) { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+function writeJSON(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); return true; } catch (e) { return false; } }
+
+// 讀本機資料（含舊版格式轉換）
+function loadLocal() {
+  const cached = readJSON(CACHE_KEY);
+  if (Array.isArray(cached)) return cached;
+  const old = readJSON(OLD_KEY);
+  if (old && typeof old === 'object') {
+    const list = [];
+    Object.keys(old).forEach(function (key) {
+      const parts = key.split('-');
+      (old[key] || []).forEach(function (b, i) {
+        list.push(Object.assign({}, b, { year: Number(parts[0]), month: Number(parts[1]), createdAt: Date.now() + i }));
+      });
+    });
+    return list;
+  }
+  // 這台裝置沒有暫存：先空著，等試算表讀進來
+  return [];
+}
+function saveLocal() { return writeJSON(CACHE_KEY, books); }
+
+function uid() { return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function find(id) { return books.find(function (b) { return b.id === id; }); }
+
+// ───── 寫入：先更新畫面，再存到 Google 試算表 ─────
+let online = false;   // 是否已連上試算表
+
+// ───── 設定：部署前請填這兩個值 ─────
+// Google Cloud「OAuth 用戶端 ID」（xxxx.apps.googleusercontent.com）
+const CLIENT_ID = 'PASTE_YOUR_CLIENT_ID.apps.googleusercontent.com';
+// Google 圖書 API 金鑰（AIza 開頭；記得限制只能從 https://syujan27.github.io/* 使用）
+const BOOKS_API_KEY = '';
+
+// ───── Google 登入（只取得「這個網站建立的檔案」的權限） ─────
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const TOKEN_KEY = 'reading-google-token';
+let token = null, tokenExp = 0, tokenClient = null, tokenWaiters = [];
+try {
+  const t = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null');
+  if (t && t.exp > Date.now() + 60000) { token = t.token; tokenExp = t.exp; }
+} catch (e) {}
+function hasToken() { return token && tokenExp > Date.now() + 60000; }
+
+function initTokenClient() {
+  if (tokenClient) return tokenClient;
+  if (!(window.google && google.accounts && google.accounts.oauth2)) return null;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPE,
+    callback: function (resp) {
+      const waiters = tokenWaiters; tokenWaiters = [];
+      if (resp.error) { waiters.forEach(function (w) { w.reject(new Error(resp.error)); }); return; }
+      token = resp.access_token;
+      tokenExp = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
+      try { localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: token, exp: tokenExp })); localStorage.setItem('reading-signed-in', '1'); } catch (e) {}
+      waiters.forEach(function (w) { w.resolve(token); });
+    },
+    error_callback: function (err) {
+      const waiters = tokenWaiters; tokenWaiters = [];
+      waiters.forEach(function (w) { w.reject(new Error(err && err.type === 'popup_closed' ? '登入視窗被關掉了' : '無法開啟 Google 登入視窗')); });
+    }
+  });
+  return tokenClient;
+}
+// 取得登入憑證；沒有的話跳出 Google 登入（要在按鈕點擊後呼叫，才不會被瀏覽器擋）
+function ensureToken() {
+  if (hasToken()) return Promise.resolve(token);
+  return new Promise(function (resolve, reject) {
+    const tc = initTokenClient();
+    if (!tc) { reject(new Error('Google 登入元件還沒載入，請稍等再試')); return; }
+    tokenWaiters.push({ resolve: resolve, reject: reject });
+    let seen = false;
+    try { seen = localStorage.getItem('reading-signed-in') === '1'; } catch (e) {}
+    tc.requestAccessToken({ prompt: seen ? '' : 'consent' });
+  });
+}
+function signOut() {
+  if (token && window.google && google.accounts) google.accounts.oauth2.revoke(token, function () {});
+  token = null; tokenExp = 0; sheetCache = null;
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem('reading-signed-in'); localStorage.removeItem(CACHE_KEY); } catch (e) {}
+  books = []; render(); setSync('signin');
+}
+
+// 帶著登入憑證呼叫 Google API
+async function gfetch(url, opts) {
+  await ensureToken();
+  opts = opts || {};
+  const res = await fetch(url, Object.assign({}, opts, {
+    headers: Object.assign({ Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, opts.headers || {})
+  }));
+  if (res.status === 401) { token = null; tokenExp = 0; try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} throw new Error('登入已過期，請重新登入'); }
+  if (!res.ok) {
+    let msg = res.status + '';
+    try { const j = await res.json(); if (j.error && j.error.message) msg += ' ' + j.error.message; } catch (e) {}
+    throw new Error(msg);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+// ───── 試算表（存在使用者自己的雲端硬碟） ─────
+const SHEET_NAME = 'Books';
+const HEADERS = ['id', 'title', 'author', 'status', 'year', 'month', 'cover', 'createdAt', 'genre', 'source', 'price'];
+const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets/';
+let sheetCache = null; // { id, url, gid }
+
+async function getSheet() {
+  if (sheetCache) return sheetCache;
+  // 找這個網站之前建立的「選讀清單」試算表
+  const q = encodeURIComponent("name='選讀清單' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+  const found = await gfetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=createdTime&fields=files(id,webViewLink)');
+  let id;
+  if (found.files && found.files.length) {
+    id = found.files[0].id;
+  } else {
+    const created = await gfetch(SHEETS, { method: 'POST', body: JSON.stringify({
+      properties: { title: '選讀清單' },
+      sheets: [{ properties: { title: SHEET_NAME, gridProperties: { frozenRowCount: 1 } } }]
+    }) });
+    id = created.spreadsheetId;
+  }
+  const meta = await gfetch(SHEETS + id + '?fields=spreadsheetUrl,sheets.properties');
+  let tab = (meta.sheets || []).find(function (x) { return x.properties.title === SHEET_NAME; });
+  if (!tab) {
+    const r = await gfetch(SHEETS + id + ':batchUpdate', { method: 'POST', body: JSON.stringify({ requests: [{ addSheet: { properties: { title: SHEET_NAME, gridProperties: { frozenRowCount: 1 } } } }] }) });
+    tab = r.replies[0].addSheet;
+  }
+  sheetCache = { id: id, url: meta.spreadsheetUrl, gid: tab.properties.sheetId };
+  // 確認第一列欄位名稱（舊表格會自動補上新欄位）
+  const head = await gfetch(SHEETS + id + '/values/' + SHEET_NAME + '!A1:K1');
+  const cur = (head.values && head.values[0]) || [];
+  if (cur.join() !== HEADERS.join()) {
+    await gfetch(SHEETS + id + '/values/' + SHEET_NAME + '!A1:K1?valueInputOption=RAW', { method: 'PUT', body: JSON.stringify({ values: [HEADERS] }) });
+  }
+  return sheetCache;
+}
+
+function rowToBook(r) {
+  const b = {};
+  HEADERS.forEach(function (h, i) { b[h] = r[i] === undefined ? '' : r[i]; });
+  b.id = String(b.id); b.title = String(b.title); b.author = String(b.author);
+  b.genre = String(b.genre || ''); b.status = String(b.status || 'want');
+  b.year = Number(b.year); b.month = Number(b.month); b.createdAt = Number(b.createdAt) || 0;
+  if (!b.source) delete b.source;
+  if (b.price === '' || isNaN(Number(b.price))) delete b.price; else b.price = Number(b.price);
+  if (!b.cover) delete b.cover;
+  return b;
+}
+function bookToRow(book) {
+  return HEADERS.map(function (h) { const v = book[h]; return v === undefined || v === null ? '' : String(v); });
+}
+async function findRow(sh, id) {
+  const col = await gfetch(SHEETS + sh.id + '/values/' + SHEET_NAME + '!A:A');
+  const ids = (col.values || []).map(function (r) { return String(r[0] || ''); });
+  const i = ids.indexOf(String(id));
+  return i >= 1 ? i + 1 : -1; // 試算表的列號（第 1 列是標題）
+}
+
+const API = {
+  listBooks: async function () {
+    const sh = await getSheet();
+    const data = await gfetch(SHEETS + sh.id + '/values/' + SHEET_NAME + '!A2:K');
+    const list = (data.values || []).filter(function (r) { return r[0]; }).map(rowToBook);
+    let email = '';
+    try { email = (await gfetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)')).user.emailAddress; } catch (e) {}
+    return { books: list, email: email, sheetUrl: sh.url };
+  },
+  saveBook: async function (book) {
+    const sh = await getSheet();
+    const r = await findRow(sh, book.id);
+    const body = JSON.stringify({ values: [bookToRow(book)] });
+    if (r > 0) {
+      await gfetch(SHEETS + sh.id + '/values/' + SHEET_NAME + '!A' + r + ':K' + r + '?valueInputOption=RAW', { method: 'PUT', body: body });
+    } else {
+      await gfetch(SHEETS + sh.id + '/values/' + SHEET_NAME + '!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', { method: 'POST', body: body });
+    }
+    return true;
+  },
+  deleteBook: async function (id) {
+    const sh = await getSheet();
+    const r = await findRow(sh, id);
+    if (r > 0) {
+      await gfetch(SHEETS + sh.id + ':batchUpdate', { method: 'POST', body: JSON.stringify({ requests: [{ deleteDimension: { range: { sheetId: sh.gid, dimension: 'ROWS', startIndex: r - 1, endIndex: r } } }] }) });
+    }
+    return true;
+  },
+  importBooks: async function (list) {
+    const sh = await getSheet();
+    if (!list.length) return 0;
+    await gfetch(SHEETS + sh.id + '/values/' + SHEET_NAME + '!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', { method: 'POST', body: JSON.stringify({ values: list.map(bookToRow) }) });
+    return list.length;
+  },
+  // 到 Google 圖書找封面（從瀏覽器直接查，不需要登入）
+  findCover: async function (title, author) {
+    title = String(title || '').trim(); author = String(author || '').trim();
+    if (!title) return { url: '', status: 0 };
+    const queries = [];
+    if (author) queries.push('intitle:' + title + ' inauthor:' + author);
+    queries.push('intitle:' + title);
+    queries.push(title);
+    let status = 0;
+    for (const q of queries) {
+      let url = 'https://www.googleapis.com/books/v1/volumes?country=TW&maxResults=40&printType=books&q=' + encodeURIComponent(q);
+      if (BOOKS_API_KEY) url += '&key=' + encodeURIComponent(BOOKS_API_KEY);
+      let res = null;
+      for (let t = 0; t < 3; t++) {
+        res = await fetch(url);
+        if (res.status !== 503 && res.status !== 500) break;
+        await new Promise(function (ok) { setTimeout(ok, 1000 * (t + 1)); });
+      }
+      status = res.status;
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const item of (data.items || [])) {
+        const links = item.volumeInfo && item.volumeInfo.imageLinks;
+        const img = links && (links.thumbnail || links.smallThumbnail);
+        if (img) return { url: img.replace('http://', 'https://').replace('&edge=curl', ''), status: 200 };
+      }
+    }
+    return { url: '', status: status };
+  }
+};
+function run(name) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  return API[name].apply(null, args);
+}
+
+// 同一本書的存檔要一筆一筆排隊送出，避免後送的舊資料蓋掉新資料
+const saveQueue = {};
+let pendingSaves = 0;
+function enqueue(id, task) {
+  pendingSaves++;
+  const p = (saveQueue[id] || Promise.resolve())
+    .then(task)
+    .catch(function () { showNotice('這筆變更沒有存到試算表，請檢查網路後重新整理頁面。'); })
+    .then(function () { pendingSaves--; });
+  saveQueue[id] = p;
+  return p;
+}
+// 存檔時用「當下最新」的內容
+function saveLatest(id) {
+  return enqueue(id, function () {
+    const b = find(id);
+    if (!b) return;
+    return run('saveBook', Object.assign({}, b));
+  });
+}
+
+function addBook(book) {
+  books.push(book);
+  commit();
+  // 先存好這本書，再去 Google 圖書找封面
+  saveLatest(book.id).then(function () { autoCover(book.id); });
+}
+
+// 自動找封面：找到就放上去，找不到就維持書背色塊（可再手動放）
+const searching = {};
+function autoCover(id, manual) {
+  const b = find(id);
+  if (!b || b.cover || searching[id]) return;
+  searching[id] = true;
+  render();
+
+  function done(url, reason) {
+    delete searching[id];
+    if (url) { updateBook(id, { cover: url }); return; }
+    render();
+    if (manual) showNotice(reason);
+  }
+
+  API.findCover(b.title, b.author || '')
+    .then(function (r) {
+      r = r || {};
+      if (r.url) done(r.url);
+      else if (r.status === 429) done('', 'Google 圖書暫時擋下查詢（429），請確認已填入 API 金鑰。');
+      else if (r.status && r.status !== 200) done('', '查詢封面失敗（' + r.status + '），請稍後再試。');
+      else done('', 'Google 圖書裡找不到《' + b.title + '》的封面，可以按「博客來找圖」，存下圖片再拖到封面上。');
+    })
+    .catch(function () { done('', '暫時連不上 Google 圖書，請稍後再試。'); });
+}
+
+function updateBook(id, patch) {
+  const b = find(id); if (!b) return;
+  Object.assign(b, patch);
+  Object.keys(patch).forEach(function (k) { if (patch[k] === null) delete b[k]; });
+  commit();
+  saveLatest(id);
+}
+function removeBook(id) {
+  books = books.filter(function (b) { return b.id !== id; });
+  commit();
+  enqueue(id, function () { return run('deleteBook', id); });
+}
+function commit() {
+  saveLocal();
+  render();
+}
+
+// 從試算表讀出全部書目
+function loadFromSheet(interactive) {
+  // 沒登入、也不是按按鈕觸發的：先不跳登入視窗，顯示登入按鈕
+  if (!hasToken() && !interactive) { setSync('signin'); return; }
+  // 還有變更在存檔中時先不要讀，免得把剛改的內容蓋回舊的
+  if (pendingSaves > 0) { setTimeout(loadFromSheet, 1500); return; }
+  setSync('loading');
+  API.listBooks()
+    .then(function (res) {
+      if (pendingSaves > 0) { setTimeout(loadFromSheet, 1500); return; }
+      res = Array.isArray(res) ? { books: res } : (res || {});
+      books = res.books || [];
+      online = true;
+      account = res.email || '';
+      sheetUrl = res.sheetUrl || '';
+      saveLocal();
+      setSync(true);
+      render();
+    })
+    .catch(function (err) {
+      setSync(hasToken() ? false : 'signin');
+      showHelp(err && err.message ? err.message : '');
+      if (books.length === 0) emptyHint.textContent = '還沒讀到書單。';
+    });
+}
+
+// 切回這個分頁時重新讀一次，手機上改過的書就會出現在電腦上
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible' && hasToken()) loadFromSheet();
+});
+
+let account = '', sheetUrl = '';
+function setSync(on) {
+  syncLine.classList.toggle('is-synced', on === true);
+  syncLine.replaceChildren();
+  if (on === 'signin') {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'add-btn'; btn.textContent = '用 Google 登入，同步我的書單';
+    btn.addEventListener('click', function () { loadFromSheet(true); });
+    syncLine.appendChild(btn);
+    const p = document.createElement('div');
+    p.style.marginTop = '8px';
+    p.textContent = '書單會存在你自己 Google 雲端硬碟裡的「選讀清單」試算表，這個網站只能存取它自己建立的檔案。';
+    syncLine.appendChild(p);
+    return;
+  }
+  const dot = document.createElement('span'); dot.className = 'dot'; syncLine.appendChild(dot);
+  if (on === 'loading') { syncLine.appendChild(document.createTextNode('正在讀取你的書單…')); return; }
+  if (!on) {
+    syncLine.appendChild(document.createTextNode('連不上試算表，目前顯示的是這台裝置上次的資料'));
+    return;
+  }
+  syncLine.appendChild(document.createTextNode('已同步到 ' + (account || '你') + ' 的 Google 試算表'));
+  if (sheetUrl) {
+    syncLine.appendChild(document.createTextNode(' · '));
+    const a = document.createElement('a');
+    a.href = sheetUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = '打開試算表';
+    a.style.color = 'inherit';
+    syncLine.appendChild(a);
+  }
+  const tip = document.createElement('div');
+  tip.style.marginTop = '4px';
+  tip.style.color = 'var(--faint)';
+  tip.textContent = '不是這個帳號？';
+  const out = document.createElement('button');
+  out.type = 'button'; out.className = 'remove-cover'; out.textContent = '登出並換帳號';
+  out.addEventListener('click', signOut);
+  tip.appendChild(out);
+  syncLine.appendChild(tip);
+}
+
+// 讀不到資料時，顯示可能的原因和解法
+function showHelp(msg) {
+  notice.replaceChildren();
+  const p1 = document.createElement('div');
+  p1.textContent = '讀不到你的書單' + (msg ? '（' + msg + '）' : '') + '。';
+  const p2 = document.createElement('div');
+  p2.textContent = '如果登入視窗沒有跳出來，請允許這個網站開啟彈出式視窗。';
+  const p3 = document.createElement('div');
+  p3.textContent = '';
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'remove-cover'; btn.textContent = '再試一次';
+  btn.addEventListener('click', function () { notice.hidden = true; loadFromSheet(true); });
+  [p1, p2, p3, btn].forEach(function (x) { notice.appendChild(x); });
+  notice.style.textAlign = 'left';
+  notice.hidden = false;
+  clearTimeout(showNotice.t);
+}
+
+// ───── 表單 ─────
+function fillYearSelect() {
+  const years = books.map(function (b) { return b.year; });
+  const min = Math.min.apply(null, years.concat([THIS_YEAR - 3]));
+  const max = Math.max.apply(null, years.concat([THIS_YEAR + 1]));
+  const keep = Number(yearInput.value) || (selectedYear || THIS_YEAR);
+  yearInput.replaceChildren();
+  for (let y = max; y >= min; y--) {
+    const o = document.createElement('option'); o.value = y; o.textContent = y + ' 年'; yearInput.appendChild(o);
+  }
+  yearInput.value = keep;
+}
+for (let m = 1; m <= 12; m++) {
+  const o = document.createElement('option'); o.value = m; o.textContent = m + ' 月'; monthInput.appendChild(o);
+}
+monthInput.value = now.getMonth() + 1;
+
+form.addEventListener('submit', function (event) {
+  event.preventDefault();
+  const title = titleInput.value.trim().replace(/^《|》$/g, '');
+  if (title === '') return;
+  const y = Number(yearInput.value), m = Number(monthInput.value);
+  addBook({ id: uid(), title: title, author: authorInput.value.trim(), status: 'want', year: y, month: m, genre: genreInput.value, createdAt: Date.now() });
+  titleInput.value = ''; authorInput.value = ''; titleInput.focus();
+  // 若目前的篩選看不到剛加入的書，就切過去
+  if (selectedYear && selectedYear !== y) selectedYear = y;
+  if (selectedMonth && selectedMonth !== m) selectedMonth = m;
+  render();
+});
+
+// ───── 篩選 ─────
+yearFilter.addEventListener('change', function () {
+  selectedYear = Number(yearFilter.value);
+  if (selectedYear) yearInput.value = selectedYear;
+  render();
+});
+monthFilter.addEventListener('change', function () {
+  selectedMonth = Number(monthFilter.value);
+  if (selectedMonth) monthInput.value = selectedMonth;
+  render();
+});
+filterRow.addEventListener('click', function (e) {
+  const b = e.target.closest('.filter-btn'); if (!b) return;
+  currentFilter = b.dataset.filter;
+  filterRow.querySelectorAll('.filter-btn').forEach(function (x) { x.classList.toggle('is-active', x === b); });
+  render();
+});
+
+// ───── 畫面 ─────
+function render() {
+  fillYearSelect();
+
+  // 年份切換：全部 + 有書的年份 + 今年
+  const yearSet = {}; yearSet[THIS_YEAR] = true;
+  books.forEach(function (b) { yearSet[b.year] = true; });
+  const years = Object.keys(yearSet).map(Number).sort(function (a, b) { return b - a; });
+  if (selectedYear && !yearSet[selectedYear]) selectedYear = 0;
+  // 年份下拉：全部 + 有書的年份 + 今年
+  yearFilter.replaceChildren();
+  [0].concat(years).forEach(function (y) {
+    const o = document.createElement('option');
+    o.value = y;
+    o.textContent = y === 0 ? '全部' : String(y);
+    yearFilter.appendChild(o);
+  });
+  yearFilter.value = selectedYear;
+
+  // 目前年份範圍內的書
+  const inYear = books.filter(function (b) { return !selectedYear || b.year === selectedYear; });
+  const inScope = inYear.filter(function (b) { return !selectedMonth || b.month === selectedMonth; });
+  const doneCount = inScope.filter(function (b) { return b.status === 'done'; }).length;
+  summary.textContent = inScope.length === 0 ? '尚無書目' : inScope.length + ' 本 · 讀完 ' + doneCount + ' 本';
+
+  // 月份格子
+  const counts = [];
+  for (let m = 1; m <= 12; m++) counts[m] = 0;
+  inYear.forEach(function (b) { counts[b.month]++; });
+  // 月份下拉：全部、1–12 月（括號內是本數）
+  monthFilter.replaceChildren();
+  for (let m = 0; m <= 12; m++) {
+    const o = document.createElement('option');
+    o.value = m;
+    o.textContent = m === 0 ? '全部' : String(m);
+    monthFilter.appendChild(o);
+  }
+  monthFilter.value = selectedMonth;
+
+  // 依「年 → 月」分組
+  const shown = inYear.filter(function (b) {
+    return (!selectedMonth || b.month === selectedMonth) && (currentFilter === 'all' || b.status === currentFilter);
+  });
+  const buckets = {};
+  shown.forEach(function (b) {
+    const k = b.year * 100 + b.month;
+    (buckets[k] = buckets[k] || []).push(b);
+  });
+  const keys = Object.keys(buckets).map(Number).sort(function (a, b) {
+    const ya = Math.floor(a / 100), yb = Math.floor(b / 100);
+    return ya !== yb ? yb - ya : (a % 100) - (b % 100); // 年份新到舊，月份 1→12
+  });
+
+  groups.replaceChildren();
+  keys.forEach(function (k) {
+    const y = Math.floor(k / 100), m = k % 100;
+    const list = buckets[k].sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+    const section = document.createElement('section');
+    section.className = 'month-group';
+    const h2 = document.createElement('h2');
+    h2.textContent = (selectedYear ? '' : y + ' 年 ') + m + ' 月';
+    const small = document.createElement('small');
+    small.textContent = MONTH_EN[m - 1] + ' · ' + list.length;
+    h2.appendChild(small);
+    const ul = document.createElement('ul');
+    list.forEach(function (b) { ul.appendChild(makeItem(b)); });
+    section.appendChild(h2); section.appendChild(ul);
+    groups.appendChild(section);
+  });
+
+  emptyHint.hidden = shown.length > 0;
+  const where = (selectedYear ? selectedYear + ' 年' : '') + (selectedMonth ? selectedMonth + ' 月' : '');
+  const anyInScope = inYear.some(function (b) { return !selectedMonth || b.month === selectedMonth; });
+  emptyHint.textContent = anyInScope
+    ? (where || '目前') + '沒有「' + STATUS_TEXT[currentFilter] + '」的書。'
+    : (where || '這裡') + '還沒有書，寫下第一本吧。';
+}
+
+function makeCell(m, label, count) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'month-cell' + (m === 0 ? ' all' : '') + (count > 0 ? ' has-books' : '') + (m === selectedMonth ? ' is-active' : '');
+  b.dataset.month = m;
+  b.setAttribute('aria-pressed', m === selectedMonth ? 'true' : 'false');
+  b.setAttribute('aria-label', (m === 0 ? '所有月份' : m + ' 月') + '，' + count + ' 本');
+  const s1 = document.createElement('span'); s1.className = 'm'; s1.textContent = label;
+  const s2 = document.createElement('span'); s2.className = 'n'; s2.textContent = count > 0 ? count : '–';
+  b.appendChild(s1); b.appendChild(s2);
+  return b;
+}
+
+// ───── 封面 ─────
+function imageToCover(file) {
+  return new Promise(function (resolve, reject) {
+    if (!file || !file.type.startsWith('image/')) { reject(new Error('not image')); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = function () {
+      const w = 140, fullH = Math.round(img.height * w / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = Math.min(fullH, 280);
+      canvas.getContext('2d').drawImage(img, 0, 0, w, fullH);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('load failed')); };
+    img.src = url;
+  });
+}
+function setCover(book, file) {
+  imageToCover(file)
+    .then(function (dataUrl) { updateBook(book.id, { cover: dataUrl }); })
+    .catch(function () { showNotice('這個檔案讀不出來，請換一張 JPG 或 PNG 圖片。'); });
+}
+coverInput.addEventListener('change', function () {
+  if (coverTarget && coverInput.files[0]) setCover(coverTarget, coverInput.files[0]);
+  coverInput.value = ''; coverTarget = null;
+});
+function toneFor(title) {
+  let n = 0;
+  for (let i = 0; i < title.length; i++) n = (n + title.charCodeAt(i)) % 997;
+  return String((n % 4) + 1);
+}
+
+function showNotice(text) {
+  notice.textContent = text; notice.hidden = false;
+  clearTimeout(showNotice.t);
+  showNotice.t = setTimeout(function () { notice.hidden = true; }, 4000);
+}
+
+// ───── 一本書 ─────
+function makeItem(book) {
+  const li = document.createElement('li');
+  li.dataset.status = book.status;
+
+  // 封面
+  const cover = document.createElement('button');
+  cover.type = 'button';
+  cover.className = 'cover';
+  cover.dataset.tone = toneFor(book.title);
+  cover.setAttribute('aria-label', (book.cover ? '更換' : '加入') + '《' + book.title + '》的封面');
+  if (book.cover) {
+    const img = document.createElement('img'); img.src = book.cover; img.alt = ''; cover.appendChild(img);
+  } else {
+    const ini = document.createElement('span'); ini.className = 'initial'; ini.textContent = book.title.charAt(0); cover.appendChild(ini);
+  }
+  const tip = document.createElement('span'); tip.className = 'tip'; tip.textContent = book.cover ? '更換' : (searching[book.id] ? '找封面中' : '加封面');
+  if (searching[book.id]) cover.classList.add('drag');
+  cover.appendChild(tip);
+  cover.addEventListener('click', function () { coverTarget = book; coverInput.click(); });
+  cover.addEventListener('dragover', function (e) { e.preventDefault(); cover.classList.add('drag'); });
+  cover.addEventListener('dragleave', function () { cover.classList.remove('drag'); });
+  cover.addEventListener('drop', function (e) {
+    e.preventDefault(); cover.classList.remove('drag');
+    if (e.dataTransfer.files[0]) setCover(book, e.dataTransfer.files[0]);
+  });
+
+  // 書名、作者
+  const info = document.createElement('div');
+  info.className = 'book';
+  const t = document.createElement('span'); t.className = 'title'; t.textContent = book.title; info.appendChild(t);
+  if (book.author || book.sample) {
+    const a = document.createElement('span'); a.className = 'author'; a.textContent = book.author || '';
+    if (book.sample) { const s = document.createElement('span'); s.className = 'sample'; s.textContent = 'sample'; a.appendChild(s); }
+    info.appendChild(a);
+  }
+  // 來源、金額的小標籤
+  if (book.source || book.price) {
+    const tags = document.createElement('span');
+    tags.className = 'author tags-line';
+    if (book.source) {
+      const tg = document.createElement('span');
+      tg.className = 'tag ' + book.source;
+      tg.textContent = SOURCES[book.source] || book.source;
+      tags.appendChild(tg);
+    }
+    if (book.price) {
+      const tp = document.createElement('span');
+      tp.className = 'tag price';
+      tp.textContent = 'NT$ ' + Number(book.price).toLocaleString('zh-TW');
+      tags.appendChild(tp);
+    }
+    tags.firstChild.style.marginLeft = '0';
+    info.appendChild(tags);
+  }
+
+  // 狀態、年份、月份、移除封面
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const statusBtn = document.createElement('button');
+  statusBtn.type = 'button';
+  statusBtn.className = 'status';
+  statusBtn.textContent = STATUS_TEXT[book.status];
+  statusBtn.setAttribute('aria-label', '狀態：' + STATUS_TEXT[book.status] + '，點擊切換');
+  statusBtn.addEventListener('click', function () {
+    updateBook(book.id, { status: STATUS[(STATUS.indexOf(book.status) + 1) % STATUS.length] });
+  });
+  meta.appendChild(statusBtn);
+
+  const ySel = document.createElement('select');
+  ySel.className = 'month-move';
+  ySel.setAttribute('aria-label', '《' + book.title + '》的年份');
+  Array.prototype.forEach.call(yearInput.options, function (o) {
+    const c = document.createElement('option'); c.value = o.value; c.textContent = o.value; ySel.appendChild(c);
+  });
+  ySel.value = book.year;
+  ySel.addEventListener('change', function () {
+    const y = Number(ySel.value);
+    if (selectedYear) selectedYear = y;
+    updateBook(book.id, { year: y });
+  });
+  meta.appendChild(ySel);
+
+  const mSel = document.createElement('select');
+  mSel.className = 'month-move';
+  mSel.setAttribute('aria-label', '《' + book.title + '》的月份');
+  for (let k = 1; k <= 12; k++) { const o = document.createElement('option'); o.value = k; o.textContent = k + ' 月'; mSel.appendChild(o); }
+  mSel.value = book.month;
+  mSel.addEventListener('change', function () {
+    const m = Number(mSel.value);
+    if (selectedMonth) selectedMonth = m;
+    updateBook(book.id, { month: m });
+  });
+  meta.appendChild(mSel);
+
+  // 類型選單
+  const gSel = document.createElement('select');
+  gSel.className = 'month-move';
+  gSel.setAttribute('aria-label', '《' + book.title + '》的類型');
+  (book.genre ? GENRES : [''].concat(GENRES)).forEach(function (g) {
+    const o = document.createElement('option'); o.value = g; o.textContent = g || '類型'; gSel.appendChild(o);
+  });
+  gSel.value = book.genre || '';
+  gSel.addEventListener('change', function () { updateBook(book.id, { genre: gSel.value }); });
+  meta.appendChild(gSel);
+
+  if (book.cover) {
+    const rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'remove-cover'; rm.textContent = '移除封面';
+    rm.addEventListener('click', function () { updateBook(book.id, { cover: null }); });
+    meta.appendChild(rm);
+  } else if (!searching[book.id]) {
+    const fc = document.createElement('button');
+    fc.type = 'button'; fc.className = 'remove-cover'; fc.textContent = '自動找封面';
+    fc.addEventListener('click', function () { autoCover(book.id, true); });
+    meta.appendChild(fc);
+    // 找不到時：到博客來搜尋這本書，存下封面圖再拖進來
+    const bk = document.createElement('a');
+    bk.className = 'remove-cover';
+    bk.textContent = '博客來找圖';
+    bk.href = 'https://search.books.com.tw/search/query/key/' + encodeURIComponent(book.title) + '/cat/all';
+    bk.target = '_blank';
+    bk.rel = 'noopener';
+    meta.appendChild(bk);
+  }
+  info.appendChild(meta);
+
+  // 刪除：按兩下才會真的刪掉
+  const del = document.createElement('button');
+  del.type = 'button'; del.className = 'delete-btn'; del.textContent = '刪除';
+  let timer = null;
+  del.addEventListener('click', function () {
+    if (!del.classList.contains('confirm')) {
+      del.classList.add('confirm'); del.textContent = '確定？';
+      timer = setTimeout(function () { del.classList.remove('confirm'); del.textContent = '刪除'; }, 2500);
+      return;
+    }
+    clearTimeout(timer);
+    removeBook(book.id);
+  });
+
+  // 詳細內容按鈕（放在刪除上方）
+  const side = document.createElement('div');
+  side.className = 'side';
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'more-btn';
+  more.setAttribute('aria-label', '《' + book.title + '》的詳細內容');
+  more.setAttribute('aria-expanded', openDetails[book.id] ? 'true' : 'false');
+  more.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 5.5h10M4 10h10M4 14.5h6"/><circle cx="16.5" cy="16.5" r="3.5"/><path d="M19 19l2.5 2.5"/></svg>';
+  more.addEventListener('click', function () {
+    if (openDetails[book.id]) delete openDetails[book.id]; else openDetails[book.id] = true;
+    render();
+  });
+  side.appendChild(more);
+  side.appendChild(del);
+
+  li.appendChild(cover); li.appendChild(info); li.appendChild(side);
+
+  // 詳細內容面板：來源、購買金額
+  if (openDetails[book.id]) {
+    const d = document.createElement('div');
+    d.className = 'details';
+
+    const l1 = document.createElement('span'); l1.className = 'd-label'; l1.textContent = '來源';
+    const row = document.createElement('div'); row.className = 'src-row'; row.setAttribute('role', 'group'); row.setAttribute('aria-label', '來源');
+    [['hyread', 'HyRead'], ['kobo', 'Kobo'], ['', '未設定']].forEach(function (opt) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'src-btn'; b.dataset.src = opt[0]; b.textContent = opt[1];
+      b.setAttribute('aria-pressed', (book.source || '') === opt[0] ? 'true' : 'false');
+      b.addEventListener('click', function () { updateBook(book.id, { source: opt[0] || null }); });
+      row.appendChild(b);
+    });
+
+    const pid = 'price-' + book.id;
+    const l2 = document.createElement('label'); l2.className = 'd-label'; l2.htmlFor = pid; l2.textContent = '購買金額';
+    const pw = document.createElement('div'); pw.className = 'price-wrap';
+    const cur = document.createElement('span'); cur.textContent = 'NT$';
+    const pin = document.createElement('input');
+    pin.id = pid; pin.type = 'number'; pin.min = '0'; pin.step = '1'; pin.inputMode = 'numeric';
+    pin.placeholder = '0';
+    pin.value = book.price || '';
+    pin.addEventListener('change', function () {
+      const v = pin.value.trim();
+      if (v === '') { updateBook(book.id, { price: null }); return; }
+      const n = Math.round(Number(v));
+      if (!isFinite(n) || n < 0) { showNotice('金額請填 0 以上的數字。'); pin.value = book.price || ''; return; }
+      updateBook(book.id, { price: n });
+    });
+    pw.appendChild(cur); pw.appendChild(pin);
+
+    d.appendChild(l1); d.appendChild(row); d.appendChild(l2); d.appendChild(pw);
+    li.appendChild(d);
+  }
+  return li;
+}
+
+// ───── 從舊試算表匯入（CSV） ─────
+function parseCSV(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') q = false;
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(function (r) { return r.some(function (x) { return x !== ''; }); });
+}
+const importInput = document.getElementById('import-input');
+document.getElementById('import-btn').addEventListener('click', function () {
+  ensureToken().then(function () { importInput.click(); }).catch(function (e) { showNotice(e.message); });
+});
+importInput.addEventListener('change', function () {
+  const file = importInput.files[0]; importInput.value = '';
+  if (!file) return;
+  file.text().then(function (text) {
+    const rows = parseCSV(text.replace(/^﻿/, ''));
+    if (rows.length < 2) throw new Error('檔案裡沒有書');
+    const head = rows[0].map(function (h) { return h.trim(); });
+    if (head.indexOf('title') < 0) throw new Error('第一列要有 title 欄位，請下載「Books」工作表');
+    const have = {}; books.forEach(function (b) { have[b.id] = true; });
+    const list = rows.slice(1).map(function (r) {
+      const o = {}; head.forEach(function (h, i) { o[h] = r[i] === undefined ? '' : r[i]; });
+      if (!o.id) o.id = uid();
+      return rowToBook(HEADERS.map(function (h) { return o[h]; }));
+    }).filter(function (b) { return b.title && !have[b.id]; });
+    if (!list.length) { showNotice('這個檔案裡的書都已經在書單裡了。'); return; }
+    return API.importBooks(list).then(function (n) { showNotice('已匯入 ' + n + ' 本書。'); loadFromSheet(true); });
+  }).catch(function (e) { showNotice('匯入失敗：' + e.message); });
+});
+
+// ───── 開始 ─────
+books = loadLocal();
+render();
+if (hasToken()) loadFromSheet();
+else {
+  setSync('signin');
+  if (books.length === 0) { emptyHint.hidden = false; emptyHint.textContent = '登入 Google 後，就能看到你的書單。'; }
+}
+</script>
+
+</body>
+</html>
