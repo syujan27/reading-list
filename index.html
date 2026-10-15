@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
+  <meta name="robots" content="noindex, nofollow">
   <title>選讀清單</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -587,7 +588,7 @@ function ensureToken() {
 }
 function signOut() {
   if (token && window.google && google.accounts) google.accounts.oauth2.revoke(token, function () {});
-  token = null; tokenExp = 0; sheetCache = null;
+  token = null; tokenExp = 0; sheetCache = null; sheetPromise = null;
   try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem('reading-signed-in'); localStorage.removeItem(CACHE_KEY); } catch (e) {}
   books = []; render(); setSync('signin');
 }
@@ -614,14 +615,34 @@ const HEADERS = ['id', 'title', 'author', 'status', 'year', 'month', 'cover', 'c
 const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets/';
 let sheetCache = null; // { id, url, gid }
 
-async function getSheet() {
+// 同一時間只能有一個「找／建立試算表」在進行，避免同時建立兩份
+let sheetPromise = null;
+function getSheet() {
+  if (sheetCache) return Promise.resolve(sheetCache);
+  if (!sheetPromise) {
+    sheetPromise = getSheetInner().catch(function (e) { sheetPromise = null; throw e; });
+  }
+  return sheetPromise;
+}
+
+// 之前不小心多建的空白「選讀清單」：裡面沒有書才丟到垃圾桶
+async function trashIfEmpty(id) {
+  try {
+    const v = await gfetch(SHEETS + id + '/values/' + SHEET_NAME + '!A2:A');
+    if (v.values && v.values.some(function (r) { return r[0]; })) return; // 有書，不動它
+    await gfetch('https://www.googleapis.com/drive/v3/files/' + id, { method: 'PATCH', body: JSON.stringify({ trashed: true }) });
+  } catch (e) { /* 清不掉就算了 */ }
+}
+
+async function getSheetInner() {
   if (sheetCache) return sheetCache;
-  // 找這個網站之前建立的「選讀清單」試算表
+  // 找這個網站之前建立的「選讀清單」試算表（用最早建立的那份）
   const q = encodeURIComponent("name='選讀清單' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
   const found = await gfetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=createdTime&fields=files(id,webViewLink)');
   let id;
   if (found.files && found.files.length) {
     id = found.files[0].id;
+    found.files.slice(1).forEach(function (f) { trashIfEmpty(f.id); });
   } else {
     const created = await gfetch(SHEETS, { method: 'POST', body: JSON.stringify({
       properties: { title: '選讀清單' },
@@ -807,13 +828,17 @@ function commit() {
 }
 
 // 從試算表讀出全部書目
+let loading = false;
 function loadFromSheet(interactive) {
+  if (loading) return;
   // 沒登入、也不是按按鈕觸發的：先不跳登入視窗，顯示登入按鈕
   if (!hasToken() && !interactive) { setSync('signin'); return; }
   // 還有變更在存檔中時先不要讀，免得把剛改的內容蓋回舊的
   if (pendingSaves > 0) { setTimeout(loadFromSheet, 1500); return; }
   setSync('loading');
+  loading = true;
   API.listBooks()
+    .finally(function () { loading = false; })
     .then(function (res) {
       if (pendingSaves > 0) { setTimeout(loadFromSheet, 1500); return; }
       res = Array.isArray(res) ? { books: res } : (res || {});
